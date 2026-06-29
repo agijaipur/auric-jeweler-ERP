@@ -1,0 +1,72 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
+@import "tailwindcss";
+
+@config "../tailwind.config.js";
+
+@layer base {
+  body {
+    @apply bg-neutral-50 text-neutral-800 dark:bg-luxury-black dark:text-neutral-100 font-sans antialiased selection:bg-gold-200 selection:text-neutral-900 transition-colors duration-200;
+  }
+  
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-poppins font-medium tracking-tight;
+  }
+}
+
+/* Glassmorphism helpers */
+.glass-panel {
+  @apply bg-white/70 dark:bg-luxury-charcoal/70 backdrop-blur-md border border-neutral-200/50 dark:border-neutral-800/50 shadow-sm rounded-2xl;
+}
+
+.glass-panel-gold {
+  @apply bg-white/80 dark:bg-luxury-charcoal/80 backdrop-blur-md border border-gold-400/20 dark:border-gold-400/10 shadow-sm rounded-2xl;
+}
+
+.gold-gradient-text {
+  @apply bg-gradient-to-r from-gold-600 via-gold-400 to-gold-700 bg-clip-text text-transparent dark:from-gold-300 dark:via-gold-400 dark:to-gold-200;
+}
+
+.gold-gradient-bg {
+  @apply bg-gradient-to-r from-gold-600 to-gold-500 hover:from-gold-500 hover:to-gold-400 dark:from-gold-500 dark:to-gold-400 dark:hover:from-gold-400 dark:hover:to-gold-300;
+}
+
+/* Custom Scrollbar for Luxury Aesthetics */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  @apply bg-transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  @apply bg-neutral-300 dark:bg-neutral-800 rounded-full transition-colors;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-gold-400/50;
+}
+
+/* Page Transition Wrapper */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(4px);
+}
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 250ms ease-out, transform 250ms ease-out;
+}
+
+/* Animation Delays */
+.animation-delay-100 {
+  animation-delay: 100ms;
+}
+.animation-delay-200 {
+  animation-delay: 200ms;
+}
+.animation-delay-300 {
+  animation-delay: 300ms;
+}
