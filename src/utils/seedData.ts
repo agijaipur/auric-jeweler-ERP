@@ -604,10 +604,10 @@ export function generateSeedData() {
       let receivedQty = 0;
       let verifiedQty = 0;
 
-      if (status === 'Completed' || status === 'Verified') {
+      if (status === 'Completed' || status === ('Verified' as any)) {
         receivedQty = orderedQty;
         verifiedQty = orderedQty;
-      } else if (status === 'Pending Verification' || status === 'Received') {
+      } else if (status === 'Pending Verification' || status === ('Received' as any)) {
         receivedQty = orderedQty;
         verifiedQty = 0;
       }
@@ -790,8 +790,8 @@ export function generateSeedData() {
   const roles = ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager'];
 
   for (let i = 1; i <= 30; i++) {
-    const action = randomChoice(logActions);
-    const entity = randomChoice(logEntities);
+    const action = randomChoice(logActions as any);
+    const entity = randomChoice(logEntities as any);
     const email = emails[i % emails.length];
     const role = roles[i % roles.length];
     

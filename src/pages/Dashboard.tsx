@@ -61,8 +61,8 @@ export const Dashboard: React.FC = () => {
     const lowStockAlerts = products.filter(p => p.stock < 5).length;
 
     const pendingVerification = purchaseOrders.filter((po: PurchaseOrder) => po.status === 'Pending Verification').length;
-    const activePOs = purchaseOrders.filter((po: PurchaseOrder) => po.status === 'Ordered' || po.status === 'Pending Verification').length;
-    const unreadNotifications = notifications.filter((n: AppNotification) => !n.read).length;
+    const activePOs = purchaseOrders.filter((po: PurchaseOrder) => po.status === 'Sent' || po.status === 'Pending Verification').length;
+    const unreadNotifications = notifications.filter((n: AppNotification) => !n.isRead).length;
 
     return {
       totalInventoryCount,

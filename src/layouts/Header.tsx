@@ -43,7 +43,7 @@ export const Header: React.FC = () => {
 
   // Filter notifications relevant to role
   const notifications = useMemo(() => {
-    return liveNotifications.filter(n => !n.isRead && (!n.targetRoles || n.targetRoles.includes(user.role)));
+    return liveNotifications.filter(n => !n.isRead && (!n.targetRoles || (user && n.targetRoles.includes(user.role))));
   }, [liveNotifications, user]);
 
   const totalNotifications = notifications.length;

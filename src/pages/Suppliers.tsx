@@ -44,7 +44,8 @@ export const Suppliers: React.FC = () => {
     rating: 5,
     leadTimeDays: 5,
     paymentTerms: 'Net 30',
-    notes: ''
+    notes: '',
+    isActive: true
   });
 
   // KPI Calculations
@@ -78,7 +79,8 @@ export const Suppliers: React.FC = () => {
       rating: 5,
       leadTimeDays: 5,
       paymentTerms: 'Net 30',
-      notes: ''
+      notes: '',
+      isActive: true
     });
     setFormOpen(true);
   };
@@ -96,7 +98,8 @@ export const Suppliers: React.FC = () => {
       rating: supp.rating,
       leadTimeDays: supp.leadTimeDays,
       paymentTerms: supp.paymentTerms,
-      notes: supp.notes
+      notes: supp.notes,
+      isActive: supp.isActive
     });
     setFormOpen(true);
   };
@@ -114,7 +117,10 @@ export const Suppliers: React.FC = () => {
         success('Supplier Updated', `${formData.name} details have been updated successfully.`);
       } else {
         // Create
-        await addSupplier(formData);
+        await addSupplier({
+          ...formData,
+          isActive: true
+        });
         success('Supplier Registered', `${formData.name} registered successfully.`);
       }
       setFormOpen(false);
