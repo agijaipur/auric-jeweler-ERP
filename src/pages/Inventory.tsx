@@ -19,6 +19,8 @@ import {
   Bookmark
 } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { QRCodeGenerator } from '../components/ui/QRCode';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 export const Inventory: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -200,7 +202,49 @@ export const Inventory: React.FC = () => {
           <p className="text-xs text-neutral-400">Manage fine assets, allocate vault coordinates, and audit logs</p>
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 text-xs font-semibold">
+          <button
+            onClick={() => {
+              const data = products.map(p => ({
+                SKU: p.sku,
+                Name: p.name,
+                Category: p.category,
+                Metal: p.metal,
+                Weight: p.weight,
+                Stock: p.stock,
+                Location: p.location,
+                Price: p.sellingPrice
+              }));
+              exportToExcel(data, 'Inventory Stock', 'inventory_stock');
+            }}
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+          >
+            Export Excel
+          </button>
+          <button
+            onClick={() => {
+              const headers = ['SKU', 'Name', 'Category', 'Metal', 'Weight', 'Stock', 'Location', 'Price'];
+              const rows = products.map(p => [
+                p.sku,
+                p.name,
+                p.category,
+                p.metal,
+                `${p.weight}g`,
+                `${p.stock} u`,
+                p.location,
+                `$${p.sellingPrice.toLocaleString()}`
+              ]);
+              exportToPDF({
+                title: 'Auric Jewels - Current Vault Stock Inventory',
+                headers,
+                rows,
+                fileName: 'inventory_report'
+              });
+            }}
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+          >
+            Export PDF
+          </button>
           <button
             onClick={() => toggleBookmark('/inventory')}
             className={`p-2.5 rounded-xl border transition-all ${
@@ -339,22 +383,35 @@ export const Inventory: React.FC = () => {
                         {prod.stock < 5 && <span className="text-[9px] text-rose-400 block font-semibold uppercase mt-0.5">Under Stocked</span>}
                       </td>
                       <td className="p-4 font-mono font-semibold text-gold-500">${(prod.sellingPrice * prod.stock).toLocaleString()}</td>
-                      {isInv && (
-                        <td className="p-4 text-right space-x-1 shrink-0">
+                        <td className="p-4 text-right space-x-1.5 shrink-0">
+                          {isInv && (
+                            <>
+                              <button
+                                onClick={() => openAdjust(prod)}
+                                className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/30 text-[10px] font-semibold transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                              >
+                                Adjust
+                              </button>
+                              <button
+                                onClick={() => openTransfer(prod)}
+                                className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/30 text-[10px] font-semibold transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800"
+                              >
+                                Transfer
+                              </button>
+                            </>
+                          )}
                           <button
-                            onClick={() => openAdjust(prod)}
+                            onClick={() => {
+                              // Open a quick modal showing the item's QR Code tag
+                              setSelectedProduct(prod);
+                              setAdjustData({ quantity: 0, type: 'IN', reason: 'VIEW_QR' });
+                              setAdjustOpen(true);
+                            }}
                             className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/30 text-[10px] font-semibold transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800"
                           >
-                            Adjust
-                          </button>
-                          <button
-                            onClick={() => openTransfer(prod)}
-                            className="px-2.5 py-1.5 rounded-lg border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/30 text-[10px] font-semibold transition-all hover:bg-neutral-50 dark:hover:bg-neutral-800"
-                          >
-                            Transfer
+                            QR Code
                           </button>
                         </td>
-                      )}
                     </tr>
                   ))}
                 </tbody>
@@ -444,74 +501,101 @@ export const Inventory: React.FC = () => {
         onClose={() => setAdjustOpen(false)}
         title={selectedProduct ? `Vault Adjustment - ${selectedProduct.name}` : 'Stock Adjustment'}
       >
-        {selectedProduct && (
-          <form onSubmit={handleAdjustSubmit} className="space-y-5 text-xs">
-            <div className="p-3 bg-gold-400/5 border border-gold-400/10 rounded-xl flex justify-between items-center">
-              <div>
-                <span className="text-neutral-400 uppercase tracking-widest text-[9px] block">Current Physical Stock</span>
-                <span className="font-mono text-sm font-bold text-neutral-900 dark:text-white">{selectedProduct.stock} units</span>
-              </div>
-              <div className="text-right">
-                <span className="text-neutral-400 uppercase tracking-widest text-[9px] block">Location</span>
-                <span className="font-mono text-sm font-bold text-gold-400">{selectedProduct.location}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="font-semibold text-neutral-400">Audit Type</label>
-                <select
-                  value={adjustData.type}
-                  onChange={(e) => setAdjustData({ ...adjustData, type: e.target.value as any })}
-                  className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white"
-                >
-                  <option value="IN">Inward (Add Stock)</option>
-                  <option value="OUT">Outward (Reduce Stock)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="font-semibold text-neutral-400">Change Quantity</label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  value={adjustData.quantity}
-                  onChange={(e) => setAdjustData({ ...adjustData, quantity: parseInt(e.target.value) || 0 })}
-                  className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white font-mono"
+            {adjustData.reason === 'VIEW_QR' ? (
+              <div className="flex flex-col items-center justify-center space-y-4 py-6 text-center">
+                <p className="text-neutral-400">Scan this QR Code tag to fetch item properties immediately.</p>
+                <QRCodeGenerator 
+                  value={JSON.stringify({
+                    id: selectedProduct.id,
+                    sku: selectedProduct.sku,
+                    name: selectedProduct.name,
+                    category: selectedProduct.category,
+                    metal: selectedProduct.metal,
+                    purity: selectedProduct.purity,
+                    weight: selectedProduct.weight,
+                    price: selectedProduct.sellingPrice
+                  })}
+                  size={180}
                 />
+                <div>
+                  <h4 className="font-bold text-neutral-900 dark:text-white">{selectedProduct.name}</h4>
+                  <span className="font-mono text-gold-500 uppercase tracking-widest text-[10px] block mt-1">{selectedProduct.sku}</span>
+                </div>
+                <button
+                  onClick={() => setAdjustOpen(false)}
+                  className="px-5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-bold"
+                >
+                  Close Tag
+                </button>
               </div>
-            </div>
+            ) : (
+              <form onSubmit={handleAdjustSubmit} className="space-y-5 text-xs">
+                <div className="p-3 bg-gold-400/5 border border-gold-400/10 rounded-xl flex justify-between items-center">
+                  <div>
+                    <span className="text-neutral-400 uppercase tracking-widest text-[9px] block">Current Physical Stock</span>
+                    <span className="font-mono text-sm font-bold text-neutral-900 dark:text-white">{selectedProduct.stock} units</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-neutral-400 uppercase tracking-widest text-[9px] block">Location</span>
+                    <span className="font-mono text-sm font-bold text-gold-400">{selectedProduct.location}</span>
+                  </div>
+                </div>
 
-            <div className="space-y-1.5">
-              <label className="font-semibold text-neutral-400">Reason / Reference Note</label>
-              <textarea
-                required
-                value={adjustData.reason}
-                onChange={(e) => setAdjustData({ ...adjustData, reason: e.target.value })}
-                rows={3}
-                placeholder="Details of audit or restocking order code..."
-                className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white"
-              />
-            </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-neutral-400">Audit Type</label>
+                    <select
+                      value={adjustData.type}
+                      onChange={(e) => setAdjustData({ ...adjustData, type: e.target.value as any })}
+                      className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white"
+                    >
+                      <option value="IN">Inward (Add Stock)</option>
+                      <option value="OUT">Outward (Reduce Stock)</option>
+                    </select>
+                  </div>
 
-            <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
-              <button
-                type="button"
-                onClick={() => setAdjustOpen(false)}
-                className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-semibold"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                className="px-5 py-2.5 rounded-xl gold-gradient-bg text-neutral-950 font-bold"
-              >
-                Confirm Adjust
-              </button>
-            </div>
-          </form>
-        )}
+                  <div className="space-y-1.5">
+                    <label className="font-semibold text-neutral-400">Change Quantity</label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      value={adjustData.quantity}
+                      onChange={(e) => setAdjustData({ ...adjustData, quantity: parseInt(e.target.value) || 0 })}
+                      className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2.5 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="font-semibold text-neutral-400">Reason / Reference Note</label>
+                  <textarea
+                    required
+                    value={adjustData.reason}
+                    onChange={(e) => setAdjustData({ ...adjustData, reason: e.target.value })}
+                    rows={3}
+                    placeholder="Details of audit or restocking order code..."
+                    className="w-full bg-neutral-50 dark:bg-neutral-900 border border-neutral-200 dark:border-neutral-800 rounded-xl py-2 px-3 outline-none focus:border-gold-400 text-neutral-900 dark:text-white"
+                  />
+                </div>
+
+                <div className="flex justify-end gap-3 pt-4 border-t border-neutral-100 dark:border-neutral-800">
+                  <button
+                    type="button"
+                    onClick={() => setAdjustOpen(false)}
+                    className="px-4 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 font-semibold"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-5 py-2.5 rounded-xl gold-gradient-bg text-neutral-950 font-bold"
+                  >
+                    Confirm Adjust
+                  </button>
+                </div>
+              </form>
+            )}
       </Modal>
 
       {/* --------------------- MODAL: Transfer Stock --------------------- */}

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Search, 
@@ -32,46 +32,19 @@ export const Header: React.FC = () => {
     jobs,
     addProduct,
     addCustomer,
-    addOrder
+    addOrder,
+    notifications: liveNotifications,
+    markNotificationRead
   } = useStore();
 
   const [notifOpen, setNotifOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [quickAddOpen, setQuickAddOpen] = useState(false);
 
-  // Generate notifications based on current db states
-  const lowStockCount = products.filter(p => p.stock < 5).length;
-  const delayedJobsCount = jobs.filter(j => j.status === 'Delayed').length;
-  const unpaidOrdersCount = orders.filter(o => o.paymentStatus === 'Unpaid').length;
-
-  const notifications = [
-    {
-      id: 1,
-      title: 'Low Stock Alert',
-      desc: `${lowStockCount} precious catalog items require restocking.`,
-      icon: <Package className="w-4 h-4 text-gold-400" />,
-      type: 'warning'
-    },
-    {
-      id: 2,
-      title: 'Production Delays',
-      desc: `${delayedJobsCount} manufacturing batches are flagged delayed by craftsmen.`,
-      icon: <ShieldAlert className="w-4 h-4 text-rose-400" />,
-      type: 'error'
-    },
-    {
-      id: 3,
-      title: 'Unpaid Receivables',
-      desc: `${unpaidOrdersCount} pending orders have outstanding invoices.`,
-      icon: <Receipt className="w-4 h-4 text-yellow-400" />,
-      type: 'info'
-    }
-  ].filter(n => {
-    if (n.id === 1 && lowStockCount === 0) return false;
-    if (n.id === 2 && delayedJobsCount === 0) return false;
-    if (n.id === 3 && unpaidOrdersCount === 0) return false;
-    return true;
-  });
+  // Filter notifications relevant to role
+  const notifications = useMemo(() => {
+    return liveNotifications.filter(n => !n.isRead && (!n.targetRoles || n.targetRoles.includes(user.role)));
+  }, [liveNotifications, user]);
 
   const totalNotifications = notifications.length;
 
@@ -79,6 +52,12 @@ export const Header: React.FC = () => {
   const getHeaderTitle = () => {
     const path = location.pathname;
     if (path === '/') return 'Dashboard Hub';
+    if (path === '/analytics') return 'Advanced Analytics';
+    if (path === '/suppliers') return 'Suppliers Directory';
+    if (path === '/purchase-orders') return 'Purchase Invoices';
+    if (path === '/notifications') return 'Notification Alerts';
+    if (path === '/activity-logs') return 'Activity Logs Audit';
+    if (path === '/automations') return 'Workflows Control';
     const segment = path.split('/')[1];
     if (!segment) return 'Auric Jewels';
     return segment.charAt(0).toUpperCase() + segment.slice(1);
@@ -202,23 +181,38 @@ export const Header: React.FC = () => {
                   transition={{ duration: 0.15 }}
                   className="absolute right-0 mt-2 w-80 rounded-xl border glass-panel bg-white dark:bg-neutral-900 shadow-2xl p-4 z-50 text-neutral-700 dark:text-neutral-300"
                 >
-                  <h4 className="font-poppins text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider mb-3">
-                    Active Vault Notifications
-                  </h4>
+                  <div className="flex justify-between items-center mb-3">
+                    <h4 className="font-poppins text-xs font-bold text-neutral-900 dark:text-white uppercase tracking-wider">
+                      Active Vault Notifications
+                    </h4>
+                    <button 
+                      onClick={() => { setNotifOpen(false); navigate('/notifications'); }}
+                      className="text-[10px] font-bold text-gold-400 hover:text-gold-300 uppercase"
+                    >
+                      View All
+                    </button>
+                  </div>
 
                   {totalNotifications === 0 ? (
                     <div className="text-center py-6 text-neutral-400 text-xs flex flex-col items-center gap-2">
                       <CheckCircle className="w-8 h-8 text-emerald-500/80" />
-                      <span>All stocks & operations reconciled.</span>
+                      <span>All stocks reconciled.</span>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {notifications.map((n) => (
-                        <div key={n.id} className="flex gap-3 text-xs leading-relaxed hover:bg-neutral-50 dark:hover:bg-neutral-800/30 p-2 rounded-lg transition-colors">
-                          <div className="shrink-0 mt-0.5">{n.icon}</div>
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                      {notifications.slice(0, 5).map((n) => (
+                        <div 
+                          key={n.id} 
+                          onClick={() => {
+                            setNotifOpen(false);
+                            markNotificationRead(n.id);
+                            if (n.actionUrl) navigate(n.actionUrl);
+                          }}
+                          className="flex gap-3 text-xs leading-relaxed hover:bg-neutral-50 dark:hover:bg-neutral-800/30 p-2 rounded-lg transition-colors cursor-pointer"
+                        >
                           <div className="flex-1">
                             <h5 className="font-semibold text-neutral-900 dark:text-white">{n.title}</h5>
-                            <p className="text-[11px] text-neutral-400 mt-0.5">{n.desc}</p>
+                            <p className="text-[11px] text-neutral-400 mt-0.5">{n.message}</p>
                           </div>
                         </div>
                       ))}

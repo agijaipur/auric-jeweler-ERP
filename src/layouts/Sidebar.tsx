@@ -14,7 +14,12 @@ import {
   LogOut, 
   ChevronLeft, 
   ChevronRight,
-  Gem
+  Gem,
+  AreaChart,
+  Truck,
+  Bell,
+  History,
+  Cpu
 } from 'lucide-react';
 import { useStore } from '../store/useStore';
 import { motion } from 'framer-motion';
@@ -30,12 +35,17 @@ export const Sidebar: React.FC = () => {
 
   if (!user) return null;
 
-  // Define sidebar menu items and role-based permissions
   const menuItems = [
     { 
       path: '/', 
       label: 'Dashboard', 
       icon: <LayoutDashboard className="w-5 h-5" />,
+      allowedRoles: ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager']
+    },
+    { 
+      path: '/analytics', 
+      label: 'Analytics', 
+      icon: <AreaChart className="w-5 h-5" />,
       allowedRoles: ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager']
     },
     { 
@@ -49,6 +59,18 @@ export const Sidebar: React.FC = () => {
       label: 'Inventory', 
       icon: <Boxes className="w-5 h-5" />,
       allowedRoles: ['Administrator', 'Inventory Manager', 'Production Manager'] 
+    },
+    { 
+      path: '/suppliers', 
+      label: 'Suppliers', 
+      icon: <Truck className="w-5 h-5" />,
+      allowedRoles: ['Administrator', 'Inventory Manager'] 
+    },
+    { 
+      path: '/purchase-orders', 
+      label: 'Purchase Orders', 
+      icon: <Receipt className="w-5 h-5" />,
+      allowedRoles: ['Administrator', 'Inventory Manager'] 
     },
     { 
       path: '/customers', 
@@ -73,6 +95,24 @@ export const Sidebar: React.FC = () => {
       label: 'Reports', 
       icon: <BarChart3 className="w-5 h-5" />,
       allowedRoles: ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager'] 
+    },
+    { 
+      path: '/notifications', 
+      label: 'Notifications', 
+      icon: <Bell className="w-5 h-5" />,
+      allowedRoles: ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager'] 
+    },
+    { 
+      path: '/activity-logs', 
+      label: 'Activity Logs', 
+      icon: <History className="w-5 h-5" />,
+      allowedRoles: ['Administrator'] 
+    },
+    { 
+      path: '/automations', 
+      label: 'Automations', 
+      icon: <Cpu className="w-5 h-5" />,
+      allowedRoles: ['Administrator'] 
     },
     { 
       path: '/ai-assistant', 

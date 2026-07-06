@@ -28,6 +28,7 @@ import {
   Line
 } from 'recharts';
 import { motion } from 'framer-motion';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 type ReportType = 'sales' | 'inventory' | 'production' | 'customers' | 'lowstock';
 
@@ -209,21 +210,71 @@ export const Reports: React.FC = () => {
         </div>
 
         {/* Action Triggers */}
-        <div className="flex gap-2 w-full md:w-auto text-xs shrink-0 font-bold">
+        <div className="flex gap-2 w-full md:w-auto text-xs shrink-0 font-bold flex-wrap">
           <button
             onClick={() => window.print()}
             className="flex-1 md:flex-initial flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/20 text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-900 transition-colors"
           >
             <Printer className="w-4 h-4" />
-            <span>Print View</span>
+            <span>Print</span>
           </button>
 
           <button
             onClick={exportToCSV}
+            className="flex-1 md:flex-initial flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/20 text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-900 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>CSV</span>
+          </button>
+
+          <button
+            onClick={() => {
+              let data: Record<string, any>[] = [];
+              if (activeReport === 'sales') {
+                data = orders.map(o => ({ OrderNo: o.orderNumber, Customer: o.customerName, Date: o.orderDate, Status: o.deliveryStatus, Payment: o.paymentStatus, Amount: o.totalAmount }));
+              } else if (activeReport === 'inventory') {
+                data = products.map(p => ({ SKU: p.sku, Name: p.name, Category: p.category, Metal: p.metal, Weight: p.weight, Stock: p.stock, Price: p.sellingPrice, Value: p.sellingPrice * p.stock }));
+              } else if (activeReport === 'production') {
+                data = jobs.map(j => ({ JobID: j.jobId, Product: j.productName, Craftsman: j.craftsman, Stage: j.stage, Started: j.startedAt, Target: j.expectedDate, Status: j.status, Progress: j.progressBar }));
+              } else if (activeReport === 'customers') {
+                data = customers.map(c => ({ Name: c.name, Email: c.email, Phone: c.phone, GSTIN: c.gst, LTV: c.lifetimeValue }));
+              } else if (activeReport === 'lowstock') {
+                data = products.filter(p => p.stock < 5).map(p => ({ SKU: p.sku, Name: p.name, Category: p.category, Location: p.location, Stock: p.stock }));
+              }
+              exportToExcel(data, `${activeReport}_report`, `${activeReport}_report`);
+            }}
+            className="flex-1 md:flex-initial flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:border-gold-400/20 text-neutral-700 dark:text-neutral-300 bg-white dark:bg-neutral-900 transition-colors"
+          >
+            <Download className="w-4 h-4" />
+            <span>Excel</span>
+          </button>
+
+          <button
+            onClick={() => {
+              let headers: string[] = [];
+              let rows: string[][] = [];
+              if (activeReport === 'sales') {
+                headers = ['Order #', 'Customer', 'Date', 'Delivery', 'Payment', 'Amount'];
+                rows = orders.map(o => [o.orderNumber, o.customerName, o.orderDate, o.deliveryStatus, o.paymentStatus, `$${o.totalAmount.toLocaleString()}`]);
+              } else if (activeReport === 'inventory') {
+                headers = ['SKU', 'Name', 'Category', 'Metal', 'Weight', 'Stock', 'Price'];
+                rows = products.map(p => [p.sku, p.name, p.category, p.metal, `${p.weight}g`, `${p.stock}`, `$${p.sellingPrice.toLocaleString()}`]);
+              } else if (activeReport === 'production') {
+                headers = ['Job ID', 'Product', 'Craftsman', 'Stage', 'Status', 'Progress'];
+                rows = jobs.map(j => [j.jobId, j.productName, j.craftsman, j.stage, j.status, `${j.progressBar}%`]);
+              } else if (activeReport === 'customers') {
+                headers = ['Name', 'Email', 'Phone', 'GSTIN', 'LTV'];
+                rows = customers.map(c => [c.name, c.email, c.phone, c.gst, `$${c.lifetimeValue.toLocaleString()}`]);
+              } else if (activeReport === 'lowstock') {
+                headers = ['SKU', 'Name', 'Category', 'Location', 'Stock'];
+                rows = products.filter(p => p.stock < 5).map(p => [p.sku, p.name, p.category, p.location, `${p.stock}`]);
+              }
+              exportToPDF({ title: `Auric Jewels - ${activeReport.charAt(0).toUpperCase() + activeReport.slice(1)} Report`, headers, rows, fileName: `${activeReport}_report` });
+            }}
             className="flex-1 md:flex-initial flex justify-center items-center gap-1.5 px-4 py-2 rounded-xl gold-gradient-bg text-neutral-950 shadow-md shadow-gold-500/10"
           >
             <Download className="w-4 h-4" />
-            <span>Export CSV</span>
+            <span>PDF</span>
           </button>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { generateSeedData, Product, Customer, Order, InventoryTransaction, ProductionJob } from '../utils/seedData';
 
 const DB_NAME = 'AuricJewelsERP_DB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export interface AppSettings {
   companyName: string;
@@ -72,6 +72,21 @@ export class AuricDB {
         }
         if (!db.objectStoreNames.contains('settings')) {
           db.createObjectStore('settings', { keyPath: 'key' });
+        }
+        if (!db.objectStoreNames.contains('suppliers')) {
+          db.createObjectStore('suppliers', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('purchaseOrders')) {
+          db.createObjectStore('purchaseOrders', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('notifications')) {
+          db.createObjectStore('notifications', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('activityLogs')) {
+          db.createObjectStore('activityLogs', { keyPath: 'id' });
+        }
+        if (!db.objectStoreNames.contains('workflowRules')) {
+          db.createObjectStore('workflowRules', { keyPath: 'id' });
         }
       };
     });
@@ -182,6 +197,11 @@ export class AuricDB {
     await this.clear('transactions');
     await this.clear('jobs');
     await this.clear('settings');
+    await this.clear('suppliers');
+    await this.clear('purchaseOrders');
+    await this.clear('notifications');
+    await this.clear('activityLogs');
+    await this.clear('workflowRules');
 
     const seed = generateSeedData();
 
@@ -190,6 +210,13 @@ export class AuricDB {
     await this.bulkPut('orders', seed.orders);
     await this.bulkPut('transactions', seed.transactions);
     await this.bulkPut('jobs', seed.jobs);
+    
+    // Seed new entities
+    if (seed.suppliers) await this.bulkPut('suppliers', seed.suppliers);
+    if (seed.purchaseOrders) await this.bulkPut('purchaseOrders', seed.purchaseOrders);
+    if (seed.notifications) await this.bulkPut('notifications', seed.notifications);
+    if (seed.activityLogs) await this.bulkPut('activityLogs', seed.activityLogs);
+    if (seed.workflowRules) await this.bulkPut('workflowRules', seed.workflowRules);
     
     // Seed settings
     await this.put('settings', { key: 'app_settings', ...DEFAULT_SETTINGS });
@@ -205,6 +232,11 @@ export class AuricDB {
     const transactions = await this.getAll<InventoryTransaction>('transactions');
     const jobs = await this.getAll<ProductionJob>('jobs');
     const settings = await this.getAll<any>('settings');
+    const suppliers = await this.getAll<any>('suppliers');
+    const purchaseOrders = await this.getAll<any>('purchaseOrders');
+    const notifications = await this.getAll<any>('notifications');
+    const activityLogs = await this.getAll<any>('activityLogs');
+    const workflowRules = await this.getAll<any>('workflowRules');
 
     const exportObject = {
       version: DB_VERSION,
@@ -214,7 +246,12 @@ export class AuricDB {
       orders,
       transactions,
       jobs,
-      settings
+      settings,
+      suppliers,
+      purchaseOrders,
+      notifications,
+      activityLogs,
+      workflowRules
     };
 
     return JSON.stringify(exportObject, null, 2);
@@ -232,6 +269,12 @@ export class AuricDB {
       await this.clear('orders');
       await this.clear('transactions');
       await this.clear('jobs');
+      await this.clear('suppliers');
+      await this.clear('purchaseOrders');
+      await this.clear('notifications');
+      await this.clear('activityLogs');
+      await this.clear('workflowRules');
+      
       if (data.settings) {
         await this.clear('settings');
       }
@@ -241,6 +284,12 @@ export class AuricDB {
       await this.bulkPut('orders', data.orders);
       await this.bulkPut('transactions', data.transactions);
       await this.bulkPut('jobs', data.jobs);
+      
+      if (data.suppliers) await this.bulkPut('suppliers', data.suppliers);
+      if (data.purchaseOrders) await this.bulkPut('purchaseOrders', data.purchaseOrders);
+      if (data.notifications) await this.bulkPut('notifications', data.notifications);
+      if (data.activityLogs) await this.bulkPut('activityLogs', data.activityLogs);
+      if (data.workflowRules) await this.bulkPut('workflowRules', data.workflowRules);
       
       if (data.settings && data.settings.length > 0) {
         await this.bulkPut('settings', data.settings);

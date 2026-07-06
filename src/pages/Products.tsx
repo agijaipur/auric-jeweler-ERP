@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Product } from '../utils/seedData';
+import { QRCodeGenerator } from '../components/ui/QRCode';
+import { exportToExcel, exportToPDF } from '../utils/exportUtils';
 
 export const Products: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -327,7 +329,39 @@ export const Products: React.FC = () => {
           </p>
         </div>
 
-        <div className="flex gap-2 w-full sm:w-auto">
+        <div className="flex gap-2 w-full sm:w-auto text-xs font-semibold">
+          <button
+            onClick={() => {
+              const data = products.map(p => ({
+                SKU: p.sku,
+                Name: p.name,
+                Category: p.category,
+                Metal: p.metal,
+                Purity: p.purity,
+                Weight: p.weight,
+                Stone: p.stoneType,
+                Stock: p.stock,
+                Price: p.sellingPrice
+              }));
+              exportToExcel(data, 'Product Catalog', 'product_catalog');
+            }}
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+          >
+            Export Excel
+          </button>
+          <button
+            onClick={() => {
+              const headers = ['SKU', 'Name', 'Category', 'Metal', 'Purity', 'Weight', 'Stone', 'Stock', 'Price'];
+              const rows = products.map(p => [
+                p.sku, p.name, p.category, p.metal, p.purity,
+                `${p.weight}g`, p.stoneType, `${p.stock}`, `$${p.sellingPrice.toLocaleString()}`
+              ]);
+              exportToPDF({ title: 'Auric Jewels - Product Catalog', headers, rows, fileName: 'product_catalog' });
+            }}
+            className="px-3.5 py-2.5 rounded-xl border border-neutral-200 dark:border-neutral-800 hover:bg-neutral-100 dark:hover:bg-neutral-800 text-neutral-600 dark:text-neutral-300"
+          >
+            Export PDF
+          </button>
           <button
             onClick={() => toggleBookmark('/products')}
             className={`p-2.5 rounded-xl border transition-all ${
@@ -765,7 +799,20 @@ export const Products: React.FC = () => {
                   </div>
                   <div className="bg-neutral-100 dark:bg-neutral-900 p-2 rounded-lg border border-neutral-200/50 dark:border-neutral-800/50 flex-1">
                     <span className="text-neutral-500 block">QR Signature</span>
-                    <span className="font-mono text-neutral-800 dark:text-white">VERIFIED</span>
+                    <span className="font-mono text-emerald-500">VERIFIED</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* QR Code Tag */}
+              <div className="glass-panel p-4 space-y-2 border-gold-400/10">
+                <h5 className="font-semibold text-neutral-400 uppercase tracking-widest text-[9.5px]">Asset QR Tag</h5>
+                <div className="flex items-center gap-4">
+                  <QRCodeGenerator value={`AURIC-PRODUCT:${viewProduct.sku}|${viewProduct.name}|${viewProduct.metal}`} size={80} />
+                  <div className="text-[10px] text-neutral-500 space-y-1">
+                    <p>Scan to identify this asset</p>
+                    <p className="font-mono text-neutral-400">{viewProduct.sku}</p>
+                    <p className="text-[9px] text-neutral-400">Contains: SKU, Name, Metal</p>
                   </div>
                 </div>
               </div>

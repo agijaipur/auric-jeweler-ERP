@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { PurchaseOrder, AppNotification } from '../utils/seedData';
 import { useStore } from '../store/useStore';
 import { useNavigate } from 'react-router-dom';
 import { 
@@ -15,7 +16,11 @@ import {
   Sparkles,
   Zap,
   Bookmark,
-  CheckCircle
+  CheckCircle,
+  Bell,
+  ShoppingCart,
+  Truck,
+  ClipboardCheck
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -35,7 +40,7 @@ import { motion } from 'framer-motion';
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate();
-  const { products, orders, jobs, transactions, user, bookmarks, toggleBookmark } = useStore();
+  const { products, orders, jobs, transactions, purchaseOrders, notifications, user, bookmarks, toggleBookmark } = useStore();
 
   const isBookmarked = bookmarks.includes('/');
 
@@ -55,6 +60,10 @@ export const Dashboard: React.FC = () => {
 
     const lowStockAlerts = products.filter(p => p.stock < 5).length;
 
+    const pendingVerification = purchaseOrders.filter((po: PurchaseOrder) => po.status === 'Pending Verification').length;
+    const activePOs = purchaseOrders.filter((po: PurchaseOrder) => po.status === 'Ordered' || po.status === 'Pending Verification').length;
+    const unreadNotifications = notifications.filter((n: AppNotification) => !n.read).length;
+
     return {
       totalInventoryCount,
       inventoryVal,
@@ -63,9 +72,12 @@ export const Dashboard: React.FC = () => {
       activeJobs,
       completedOrders,
       totalRevenue,
-      lowStockAlerts
+      lowStockAlerts,
+      pendingVerification,
+      activePOs,
+      unreadNotifications
     };
-  }, [products, orders, jobs]);
+  }, [products, orders, jobs, purchaseOrders, notifications]);
 
   // 2. Sales Trend Chart Data (Grouped by month for last 6 months)
   const salesChartData = useMemo(() => {
@@ -276,6 +288,73 @@ export const Dashboard: React.FC = () => {
         </motion.div>
       </div>
 
+      {/* Quick Action Cards Row */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <motion.div
+          variants={cardVariants}
+          onClick={() => navigate('/purchase-orders')}
+          className="glass-panel p-4 flex items-center gap-3 cursor-pointer hover:border-gold-400/20 transition-all group"
+        >
+          <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500">
+            <ShoppingCart className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Active POs</span>
+            <p className="text-sm font-bold text-neutral-900 dark:text-white">{stats.activePOs} orders</p>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 ml-auto text-neutral-300 dark:text-neutral-600 group-hover:text-gold-400 transition-colors" />
+        </motion.div>
+
+        <motion.div
+          variants={cardVariants}
+          onClick={() => navigate('/purchase-orders')}
+          className="glass-panel p-4 flex items-center gap-3 cursor-pointer hover:border-amber-500/20 transition-all group"
+        >
+          <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500">
+            <ClipboardCheck className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Pending Verification</span>
+            <p className={`text-sm font-bold ${stats.pendingVerification > 0 ? 'text-orange-500' : 'text-neutral-900 dark:text-white'}`}>
+              {stats.pendingVerification} POs
+            </p>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 ml-auto text-neutral-300 dark:text-neutral-600 group-hover:text-orange-400 transition-colors" />
+        </motion.div>
+
+        <motion.div
+          variants={cardVariants}
+          onClick={() => navigate('/notifications')}
+          className="glass-panel p-4 flex items-center gap-3 cursor-pointer hover:border-blue-500/20 transition-all group"
+        >
+          <div className="p-2.5 rounded-xl bg-blue-500/10 text-blue-500">
+            <Bell className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Unread Alerts</span>
+            <p className={`text-sm font-bold ${stats.unreadNotifications > 0 ? 'text-blue-500' : 'text-neutral-900 dark:text-white'}`}>
+              {stats.unreadNotifications} new
+            </p>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 ml-auto text-neutral-300 dark:text-neutral-600 group-hover:text-blue-400 transition-colors" />
+        </motion.div>
+
+        <motion.div
+          variants={cardVariants}
+          onClick={() => navigate('/suppliers')}
+          className="glass-panel p-4 flex items-center gap-3 cursor-pointer hover:border-emerald-500/20 transition-all group"
+        >
+          <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-500">
+            <Truck className="w-4 h-4" />
+          </div>
+          <div className="min-w-0">
+            <span className="text-[10px] font-semibold text-neutral-400 uppercase tracking-wider">Suppliers</span>
+            <p className="text-sm font-bold text-neutral-900 dark:text-white">Manage Vendors</p>
+          </div>
+          <ArrowRight className="w-3.5 h-3.5 ml-auto text-neutral-300 dark:text-neutral-600 group-hover:text-emerald-400 transition-colors" />
+        </motion.div>
+      </div>
+
       {/* Main Charts & Visualizations Area */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Sales Trend Chart */}
@@ -382,10 +461,10 @@ export const Dashboard: React.FC = () => {
               <p className="text-[11px] text-neutral-400">Latest changes logged in CRM & stock vault</p>
             </div>
             <button
-              onClick={() => navigate('/inventory')}
+              onClick={() => navigate('/activity-logs')}
               className="text-xs font-semibold text-gold-400 hover:text-gold-300 transition-colors flex items-center gap-1"
             >
-              <span>View Logs</span>
+              <span>View All Logs</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>

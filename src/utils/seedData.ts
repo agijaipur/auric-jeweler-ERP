@@ -104,6 +104,99 @@ export interface ProductionJob {
   progressBar: number;
 }
 
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson: string;
+  email: string;
+  phone: string;
+  address: string;
+  gst: string;
+  category: 'Gold' | 'Silver' | 'Gemstones' | 'Packaging' | 'General';
+  rating: number;
+  leadTimeDays: number;
+  paymentTerms: string;
+  notes: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface PurchaseOrderItem {
+  productId: string;
+  sku: string;
+  name: string;
+  orderedQty: number;
+  receivedQty: number;
+  verifiedQty: number;
+  unitCost: number;
+  weight: number;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  poNumber: string;
+  supplierId: string;
+  supplierName: string;
+  items: PurchaseOrderItem[];
+  status: 'Draft' | 'Sent' | 'Received' | 'Pending Verification' | 'Verified' | 'Completed' | 'Cancelled';
+  totalCost: number;
+  orderDate: string;
+  expectedDelivery: string;
+  receivedDate?: string;
+  verifiedDate?: string;
+  verifiedBy?: string;
+  receivedBy?: string;
+  notes: string;
+  createdBy: string;
+}
+
+export interface AppNotification {
+  id: string;
+  type: 'low_stock' | 'order_pending' | 'production_delay' | 'po_received' | 'po_verified' | 'stock_update' | 'system' | 'workflow';
+  title: string;
+  message: string;
+  severity: 'info' | 'warning' | 'error' | 'success';
+  isRead: boolean;
+  actionUrl?: string;
+  createdAt: string;
+  expiresAt?: string;
+  targetRoles: string[];
+}
+
+export interface ActivityLog {
+  id: string;
+  action: 'CREATE' | 'UPDATE' | 'DELETE' | 'LOGIN' | 'EXPORT' | 'VERIFY' | 'APPROVE' | 'WORKFLOW';
+  entity: 'product' | 'order' | 'customer' | 'inventory' | 'purchase_order' | 'supplier' | 'production' | 'settings' | 'auth';
+  entityId: string;
+  entityName: string;
+  description: string;
+  performedBy: string;
+  performedByRole: string;
+  metadata?: Record<string, any>;
+  timestamp: string;
+  ipAddress?: string;
+}
+
+export interface WorkflowAction {
+  type: 'send_notification' | 'create_purchase_order' | 'update_status' | 'flag_item';
+  config: Record<string, any>;
+}
+
+export interface WorkflowRule {
+  id: string;
+  name: string;
+  description: string;
+  trigger: 'low_stock' | 'order_created' | 'po_received' | 'production_delayed' | 'payment_overdue';
+  conditions: Record<string, any>;
+  actions: WorkflowAction[];
+  isEnabled: boolean;
+  lastTriggered?: string;
+  triggerCount: number;
+  createdBy: string;
+  createdAt: string;
+}
+
+
 // Procedural generator helpers
 const firstNames = ['Aarav', 'Vihaan', 'Aditya', 'Sai', 'Arjun', 'Rohan', 'Reyansh', 'Krishna', 'Ishaan', 'Kabir', 'Ananya', 'Diya', 'Ira', 'Kiara', 'Myra', 'Pari', 'Saanvi', 'Prisha', 'Aanya', 'Riya', 'Rahul', 'Neha', 'Pooja', 'Suresh', 'Amit', 'Rajesh', 'Sanjay', 'Vikram', 'Priya', 'Deepika', 'Kunal', 'Manish', 'Kiran', 'Nisha', 'Sunita', 'Gita', 'Harish', 'Vijay', 'Prem', 'Mohan'];
 const lastNames = ['Sharma', 'Verma', 'Patel', 'Gupta', 'Mehta', 'Joshi', 'Shah', 'Trivedi', 'Rao', 'Nair', 'Iyer', 'Singh', 'Reddy', 'Choudhury', 'Sen', 'Banerjee', 'Mishra', 'Pandey', 'Dubey', 'Saxena', 'Kapoor', 'Khanna', 'Malhotra', 'Soni', 'Jain', 'Bhasin', 'Deshmukh', 'Kulkarni', 'Bhat', 'Shetty', 'Pillai', 'Acharya', 'Menon', 'Grover', 'Bose'];
@@ -452,11 +545,320 @@ export function generateSeedData() {
     });
   }
 
+  // 6. Generate 10 Suppliers
+  const seedSuppliers: Supplier[] = [];
+  const supplierCategories = ['Gold', 'Silver', 'Gemstones', 'Packaging', 'General'] as const;
+  const supplierNames = [
+    { name: 'Kanak Gold Bullion', category: 'Gold' },
+    { name: 'Saraswati Silver Refineries', category: 'Silver' },
+    { name: 'Jaipur Gem Emporium', category: 'Gemstones' },
+    { name: 'Ratna & Co.', category: 'Gemstones' },
+    { name: 'Apex Jewelry Packaging', category: 'Packaging' },
+    { name: 'Aurum Refining Corp', category: 'Gold' },
+    { name: 'Vedic Gems & Diamonds', category: 'Gemstones' },
+    { name: 'Sterling Metals Ltd', category: 'Silver' },
+    { name: 'Elite Box Creators', category: 'Packaging' },
+    { name: 'Mahalaxmi Alloys', category: 'General' }
+  ];
+
+  supplierNames.forEach((s, idx) => {
+    const email = `${s.name.toLowerCase().replace(/[^a-z0-9]/g, '')}@example.com`;
+    seedSuppliers.push({
+      id: `supp_${idx + 1}`,
+      name: s.name,
+      contactPerson: `${randomChoice(firstNames)} ${randomChoice(lastNames)}`,
+      email,
+      phone: `+91 9${randomInt(10000000, 99999999)}`,
+      address: `${randomInt(1, 99)}, Industrial Area Phase II, Jaipur, Rajasthan`,
+      gst: `08${randomChoice(['A','B','C'])}${randomChoice(['P','C'])}${randomChoice(['A','M'])}${randomInt(1000, 9999)}${randomChoice(['A','B'])}${randomInt(1, 9)}Z${randomInt(1,9)}`,
+      category: s.category as any,
+      rating: randomInt(3, 5),
+      leadTimeDays: randomInt(3, 10),
+      paymentTerms: randomChoice(['Net 30', 'Net 15', 'COD', 'Advance']),
+      notes: `${s.name} is a verified vendor for our ${s.category} requirements. Performance is stable.`,
+      isActive: true,
+      createdAt: `2025-01-${pad(randomInt(1, 28), 2)}`
+    });
+  });
+
+  // 7. Generate 20 Purchase Orders
+  const seedPurchaseOrders: PurchaseOrder[] = [];
+  const poStatuses = ['Draft', 'Sent', 'Received', 'Pending Verification', 'Verified', 'Completed', 'Cancelled'] as const;
+  let poCounter = 1001;
+
+  for (let i = 1; i <= 20; i++) {
+    const supplier = seedSuppliers[i % seedSuppliers.length];
+    
+    // Choose 1-3 random products suitable for supplier category if possible
+    const numItems = randomInt(1, 3);
+    const poItems: PurchaseOrderItem[] = [];
+    let totalVal = 0;
+    
+    for (let k = 0; k < numItems; k++) {
+      const prod = seedProducts[randomInt(0, 499)];
+      const orderedQty = randomInt(5, 20);
+      const unitCost = Math.round(prod.sellingPrice * 0.7); // 30% margin estimated cost
+      
+      // Determine received and verified quantities based on status
+      let status: PurchaseOrder['status'] = i <= 5 ? 'Completed' : i <= 10 ? 'Pending Verification' : i <= 15 ? 'Sent' : 'Draft';
+      let receivedQty = 0;
+      let verifiedQty = 0;
+
+      if (status === 'Completed' || status === 'Verified') {
+        receivedQty = orderedQty;
+        verifiedQty = orderedQty;
+      } else if (status === 'Pending Verification' || status === 'Received') {
+        receivedQty = orderedQty;
+        verifiedQty = 0;
+      }
+
+      poItems.push({
+        productId: prod.id,
+        sku: prod.sku,
+        name: prod.name,
+        orderedQty,
+        receivedQty,
+        verifiedQty,
+        unitCost,
+        weight: prod.weight
+      });
+      totalVal += unitCost * orderedQty;
+    }
+
+    const dateOffsetDays = 60 - (i * 2);
+    const orderDateObj = new Date(today.getTime() - dateOffsetDays * 24 * 60 * 60 * 1000);
+    const orderDate = orderDateObj.toISOString().split('T')[0];
+    const expDeliveryObj = new Date(orderDateObj.getTime() + supplier.leadTimeDays * 24 * 60 * 60 * 1000);
+    const expectedDelivery = expDeliveryObj.toISOString().split('T')[0];
+
+    let status: PurchaseOrder['status'] = i <= 5 ? 'Completed' : i <= 10 ? 'Pending Verification' : i <= 15 ? 'Sent' : 'Draft';
+    let receivedDate;
+    let verifiedDate;
+    let verifiedBy;
+    let receivedBy;
+
+    if (status === 'Completed') {
+      receivedDate = expectedDelivery;
+      verifiedDate = expectedDelivery;
+      verifiedBy = 'admin@auric.com';
+      receivedBy = 'inventory@auric.com';
+    } else if (status === 'Pending Verification') {
+      receivedDate = expectedDelivery;
+      receivedBy = 'inventory@auric.com';
+    }
+
+    seedPurchaseOrders.push({
+      id: `po_${i}`,
+      poNumber: `PO-2026-${poCounter++}`,
+      supplierId: supplier.id,
+      supplierName: supplier.name,
+      items: poItems,
+      status,
+      totalCost: totalVal,
+      orderDate,
+      expectedDelivery,
+      receivedDate,
+      verifiedDate,
+      verifiedBy,
+      receivedBy,
+      notes: `PO generated for procurement of raw inventory materials. Standard checks applicable.`,
+      createdBy: 'inventory@auric.com'
+    });
+  }
+
+  // 8. Generate 5 Workflow Rules
+  const seedWorkflowRules: WorkflowRule[] = [
+    {
+      id: 'rule_1',
+      name: 'Auto Low-Stock Alert',
+      description: 'Generates an internal notification immediately when catalog item stock falls below 5.',
+      trigger: 'low_stock',
+      conditions: { threshold: 5 },
+      actions: [
+        {
+          type: 'send_notification',
+          config: {
+            title: 'Low Stock Alert',
+            message: 'Product {{name}} is under-stocked (Current: {{stock}} units). Please initiate restocking.',
+            severity: 'warning',
+            targetRoles: ['Administrator', 'Inventory Manager']
+          }
+        }
+      ],
+      isEnabled: true,
+      triggerCount: 12,
+      lastTriggered: new Date(today.getTime() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdBy: 'admin@auric.com',
+      createdAt: '2025-01-10'
+    },
+    {
+      id: 'rule_2',
+      name: 'Auto-Create Draft Reorder PO',
+      description: 'Generates a draft purchase order for the preferred supplier when gold items fall below 3 units.',
+      trigger: 'low_stock',
+      conditions: { threshold: 3, category: 'Rings' },
+      actions: [
+        {
+          type: 'create_purchase_order',
+          config: {
+            defaultSupplierId: 'supp_1',
+            reorderQty: 10
+          }
+        }
+      ],
+      isEnabled: false,
+      triggerCount: 0,
+      createdBy: 'admin@auric.com',
+      createdAt: '2025-02-15'
+    },
+    {
+      id: 'rule_3',
+      name: 'Production Delay Broadcast',
+      description: 'Sends alerts to the Production Manager and Admin if a manufacturing job is delayed.',
+      trigger: 'production_delayed',
+      conditions: { delayDays: 3 },
+      actions: [
+        {
+          type: 'send_notification',
+          config: {
+            title: 'Production Delay Alert',
+            message: 'Manufacturing job {{jobId}} ({{productName}}) is delayed at {{stage}} stage.',
+            severity: 'error',
+            targetRoles: ['Administrator', 'Production Manager']
+          }
+        }
+      ],
+      isEnabled: true,
+      triggerCount: 4,
+      lastTriggered: new Date(today.getTime() - 5 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdBy: 'admin@auric.com',
+      createdAt: '2025-01-20'
+    },
+    {
+      id: 'rule_4',
+      name: 'Payment Reminder Automation',
+      description: 'Notify sales executive if order is unpaid and expected delivery has passed.',
+      trigger: 'payment_overdue',
+      conditions: { graceDays: 7 },
+      actions: [
+        {
+          type: 'send_notification',
+          config: {
+            title: 'Outstanding Payment Alert',
+            message: 'Order {{orderNumber}} for {{customerName}} has been unpaid for {{days}} days.',
+            severity: 'info',
+            targetRoles: ['Administrator', 'Sales Executive']
+          }
+        }
+      ],
+      isEnabled: true,
+      triggerCount: 15,
+      lastTriggered: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdBy: 'admin@auric.com',
+      createdAt: '2025-03-01'
+    },
+    {
+      id: 'rule_5',
+      name: 'PO Pending Verification Watchdog',
+      description: 'Nudges administrators if a purchase order remains in Pending Verification state for over 24 hours.',
+      trigger: 'po_received',
+      conditions: { hoursPending: 24 },
+      actions: [
+        {
+          type: 'send_notification',
+          config: {
+            title: 'Action Required: Verify PO',
+            message: 'Purchase Order {{poNumber}} from {{supplierName}} has been received and is awaiting verification.',
+            severity: 'warning',
+            targetRoles: ['Administrator', 'Inventory Manager']
+          }
+        }
+      ],
+      isEnabled: true,
+      triggerCount: 2,
+      lastTriggered: new Date(today.getTime() - 8 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      createdBy: 'admin@auric.com',
+      createdAt: '2025-03-10'
+    }
+  ];
+
+  // 9. Generate 30 Activity Logs
+  const seedActivityLogs: ActivityLog[] = [];
+  const logActions = ['CREATE', 'UPDATE', 'DELETE', 'LOGIN', 'EXPORT', 'VERIFY'] as const;
+  const logEntities = ['product', 'order', 'customer', 'inventory', 'purchase_order', 'supplier', 'production'] as const;
+  const emails = ['admin@auric.com', 'inventory@auric.com', 'sales@auric.com', 'production@auric.com'];
+  const roles = ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager'];
+
+  for (let i = 1; i <= 30; i++) {
+    const action = randomChoice(logActions);
+    const entity = randomChoice(logEntities);
+    const email = emails[i % emails.length];
+    const role = roles[i % roles.length];
+    
+    const dateOffset = 30 - i;
+    const date = new Date(today.getTime() - dateOffset * 24 * 60 * 60 * 1000).toISOString();
+
+    seedActivityLogs.push({
+      id: `log_${i}`,
+      action,
+      entity,
+      entityId: `entity_${randomInt(100, 999)}`,
+      entityName: `Sample ${entity} #${i}`,
+      description: `${action} operation completed on ${entity} record by ${email}`,
+      performedBy: email,
+      performedByRole: role,
+      timestamp: date,
+      ipAddress: `192.168.1.${randomInt(10, 254)}`
+    });
+  }
+
+  // 10. Generate App Notifications
+  const seedNotifications: AppNotification[] = [
+    {
+      id: 'notif_1',
+      type: 'low_stock',
+      title: 'Low Stock Alert',
+      message: 'Ring: Yellow Gold Solitaire Ring is under threshold. 3 units left.',
+      severity: 'warning',
+      isRead: false,
+      createdAt: new Date().toISOString(),
+      targetRoles: ['Administrator', 'Inventory Manager']
+    },
+    {
+      id: 'notif_2',
+      type: 'po_received',
+      title: 'PO Received - Verification Required',
+      message: 'PO-2026-1006 has been marked as Received. Please verify quantities.',
+      severity: 'info',
+      isRead: false,
+      createdAt: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+      actionUrl: '/purchase-orders?verify=po_6',
+      targetRoles: ['Administrator', 'Inventory Manager']
+    },
+    {
+      id: 'notif_3',
+      type: 'production_delay',
+      title: 'Production Job Delayed',
+      message: 'JOB-124 (Platinum Chandelier Earrings) has exceeded expected date by 2 days.',
+      severity: 'error',
+      isRead: false,
+      createdAt: new Date(Date.now() - 7200000).toISOString(), // 2 hours ago
+      actionUrl: '/production?job=JOB-124',
+      targetRoles: ['Administrator', 'Production Manager']
+    }
+  ];
+
   return {
     products: seedProducts,
     customers: seedCustomers,
     orders: seedOrders,
     transactions: seedTransactions,
-    jobs: seedJobs
+    jobs: seedJobs,
+    suppliers: seedSuppliers,
+    purchaseOrders: seedPurchaseOrders,
+    workflowRules: seedWorkflowRules,
+    activityLogs: seedActivityLogs,
+    notifications: seedNotifications
   };
 }
+

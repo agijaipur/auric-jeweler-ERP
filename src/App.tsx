@@ -17,6 +17,12 @@ import { Reports } from './pages/Reports';
 import { AiAssistant } from './pages/AiAssistant';
 import { Settings } from './pages/Settings';
 import { Profile } from './pages/Profile';
+import { AnalyticsDashboard } from './pages/AnalyticsDashboard';
+import { Suppliers } from './pages/Suppliers';
+import { PurchaseOrders } from './pages/PurchaseOrders';
+import { NotificationCenter } from './pages/NotificationCenter';
+import { ActivityLogs } from './pages/ActivityLogs';
+import { Automations } from './pages/Automations';
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Protected Route Wrapper
@@ -90,12 +96,18 @@ export const AppContent: React.FC = () => {
           <ProtectedLayout>
             <Routes>
               <Route path="/" element={<Dashboard />} />
+              <Route path="/analytics" element={<AnalyticsDashboard />} />
               <Route path="/products" element={<Products />} />
               <Route path="/inventory" element={<Inventory />} />
+              <Route path="/suppliers" element={<Suppliers />} />
+              <Route path="/purchase-orders" element={<PurchaseOrders />} />
               <Route path="/customers" element={<Customers />} />
               <Route path="/orders" element={<Orders />} />
               <Route path="/production" element={<Production />} />
               <Route path="/reports" element={<Reports />} />
+              <Route path="/notifications" element={<NotificationCenter />} />
+              <Route path="/activity-logs" element={<ActivityLogs />} />
+              <Route path="/automations" element={<Automations />} />
               <Route path="/ai-assistant" element={<AiAssistant />} />
               <Route path="/settings" element={<Settings />} />
               <Route path="/profile" element={<Profile />} />

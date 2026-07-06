@@ -1,6 +1,18 @@
 import { create } from 'zustand';
 import { dbInstance, AppSettings } from '../db/db';
-import { Product, Customer, Order, InventoryTransaction, ProductionJob, ProductionNote } from '../utils/seedData';
+import { 
+  Product, 
+  Customer, 
+  Order, 
+  InventoryTransaction, 
+  ProductionJob, 
+  ProductionNote,
+  Supplier,
+  PurchaseOrder,
+  AppNotification,
+  ActivityLog,
+  WorkflowRule
+} from '../utils/seedData';
 
 // Cookie Helpers
 const setCookie = (name: string, value: string, days = 7) => {
@@ -70,6 +82,11 @@ interface AuricState {
   transactions: InventoryTransaction[];
   jobs: ProductionJob[];
   settings: AppSettings | null;
+  suppliers: Supplier[];
+  purchaseOrders: PurchaseOrder[];
+  notifications: AppNotification[];
+  activityLogs: ActivityLog[];
+  workflowRules: WorkflowRule[];
 
   // UI state
   isLoading: boolean;
@@ -112,6 +129,33 @@ interface AuricState {
   updateJob: (job: ProductionJob) => Promise<void>;
   addJobNote: (jobId: string, comment: string, author: string) => Promise<void>;
 
+  // Supplier Actions
+  addSupplier: (supplier: Omit<Supplier, 'id' | 'createdAt'> & { id?: string }) => Promise<void>;
+  updateSupplier: (supplier: Supplier) => Promise<void>;
+  deleteSupplier: (id: string) => Promise<void>;
+
+  // Purchase Order Actions
+  addPurchaseOrder: (po: Omit<PurchaseOrder, 'id' | 'poNumber' | 'totalCost'> & { id?: string; poNumber?: string }) => Promise<PurchaseOrder>;
+  updatePurchaseOrder: (po: PurchaseOrder) => Promise<void>;
+  deletePurchaseOrder: (id: string) => Promise<void>;
+  receivePurchaseOrder: (id: string, receivedQtys: { productId: string; qty: number }[]) => Promise<void>;
+  verifyPurchaseOrder: (id: string, verifiedQtys: { productId: string; qty: number }[]) => Promise<void>;
+
+  // Notification Actions
+  addNotification: (notification: Omit<AppNotification, 'id' | 'createdAt' | 'isRead'>) => Promise<void>;
+  markNotificationRead: (id: string) => Promise<void>;
+  markAllNotificationsRead: () => Promise<void>;
+  deleteNotification: (id: string) => Promise<void>;
+
+  // Activity Log Actions
+  logActivity: (action: ActivityLog['action'], entity: ActivityLog['entity'], entityId: string, entityName: string, description: string, metadata?: Record<string, any>) => Promise<void>;
+
+  // Workflow Automation Actions
+  addWorkflowRule: (rule: Omit<WorkflowRule, 'id' | 'createdAt' | 'triggerCount'>) => Promise<void>;
+  updateWorkflowRule: (rule: WorkflowRule) => Promise<void>;
+  deleteWorkflowRule: (id: string) => Promise<void>;
+  executeWorkflows: (trigger: WorkflowRule['trigger'], data: any) => Promise<void>;
+
   updateSettings: (settings: AppSettings) => Promise<void>;
   resetApplication: () => Promise<void>;
 }
@@ -127,6 +171,11 @@ export const useStore = create<AuricState>((set, get) => ({
   transactions: [],
   jobs: [],
   settings: null,
+  suppliers: [],
+  purchaseOrders: [],
+  notifications: [],
+  activityLogs: [],
+  workflowRules: [],
 
   isLoading: true,
   theme: (localStorage.getItem('auric_theme') as 'light' | 'dark') || 'dark',
@@ -149,6 +198,11 @@ export const useStore = create<AuricState>((set, get) => ({
       const transactions = await dbInstance.getAll<InventoryTransaction>('transactions');
       const jobs = await dbInstance.getAll<ProductionJob>('jobs');
       const settingsList = await dbInstance.getAll<any>('settings');
+      const suppliers = await dbInstance.getAll<Supplier>('suppliers');
+      const purchaseOrders = await dbInstance.getAll<PurchaseOrder>('purchaseOrders');
+      const notifications = await dbInstance.getAll<AppNotification>('notifications');
+      const activityLogs = await dbInstance.getAll<ActivityLog>('activityLogs');
+      const workflowRules = await dbInstance.getAll<WorkflowRule>('workflowRules');
       
       const appSettings = settingsList.find(s => s.key === 'app_settings') || null;
 
@@ -173,6 +227,11 @@ export const useStore = create<AuricState>((set, get) => ({
         transactions,
         jobs,
         settings: appSettings,
+        suppliers,
+        purchaseOrders,
+        notifications,
+        activityLogs,
+        workflowRules,
         user: activeUser,
         isAuthenticated: isAuth,
         isLoading: false
@@ -291,6 +350,9 @@ export const useStore = create<AuricState>((set, get) => ({
       performedBy: get().user?.email || 'system',
       notes: 'Auto-generated on product creation'
     });
+
+    await get().logActivity('CREATE', 'product', id, product.name, `Product ${product.name} (${product.sku}) created.`);
+    await get().executeWorkflows('low_stock', product);
   },
 
   updateProduct: async (product) => {
@@ -298,13 +360,18 @@ export const useStore = create<AuricState>((set, get) => ({
     set(state => ({
       products: state.products.map(p => p.id === product.id ? product : p)
     }));
+    await get().logActivity('UPDATE', 'product', product.id, product.name, `Product ${product.name} (${product.sku}) updated.`);
+    await get().executeWorkflows('low_stock', product);
   },
 
   deleteProduct: async (id) => {
+    const prod = get().products.find(p => p.id === id);
+    if (!prod) return;
     await dbInstance.delete('products', id);
     set(state => ({
       products: state.products.filter(p => p.id !== id)
     }));
+    await get().logActivity('DELETE', 'product', id, prod.name, `Product ${prod.name} (${prod.sku}) deleted.`);
   },
 
   addCustomer: async (newCust) => {
@@ -318,6 +385,7 @@ export const useStore = create<AuricState>((set, get) => ({
 
     await dbInstance.put('customers', customer);
     set(state => ({ customers: [customer, ...state.customers] }));
+    await get().logActivity('CREATE', 'customer', id, customer.name, `Customer ${customer.name} registered.`);
   },
 
   updateCustomer: async (customer) => {
@@ -325,13 +393,17 @@ export const useStore = create<AuricState>((set, get) => ({
     set(state => ({
       customers: state.customers.map(c => c.id === customer.id ? customer : c)
     }));
+    await get().logActivity('UPDATE', 'customer', customer.id, customer.name, `Customer ${customer.name} profile updated.`);
   },
 
   deleteCustomer: async (id) => {
+    const cust = get().customers.find(c => c.id === id);
+    if (!cust) return;
     await dbInstance.delete('customers', id);
     set(state => ({
       customers: state.customers.filter(c => c.id !== id)
     }));
+    await get().logActivity('DELETE', 'customer', id, cust.name, `Customer ${cust.name} deleted.`);
   },
 
   addOrder: async (newOrder) => {
@@ -354,6 +426,8 @@ export const useStore = create<AuricState>((set, get) => ({
     
     // Update store
     set(state => ({ orders: [order, ...state.orders] }));
+
+    await get().logActivity('CREATE', 'order', id, orderNumber, `Order ${orderNumber} booked.`);
 
     // Adjust LTV of Customer
     if (order.paymentStatus !== 'Unpaid') {
@@ -436,6 +510,8 @@ export const useStore = create<AuricState>((set, get) => ({
       orders: state.orders.map(o => o.id === order.id ? updatedOrder : o)
     }));
 
+    await get().logActivity('UPDATE', 'order', order.id, order.orderNumber, `Order ${order.orderNumber} updated.`);
+
     // Update customer LTV if payment status transitions to Paid
     if (updatedOrder.paymentStatus === 'Paid' && prevOrder?.paymentStatus === 'Unpaid') {
       const customer = get().customers.find(c => c.id === order.customerId);
@@ -450,10 +526,13 @@ export const useStore = create<AuricState>((set, get) => ({
   },
 
   deleteOrder: async (id) => {
+    const ord = get().orders.find(o => o.id === id);
+    if (!ord) return;
     await dbInstance.delete('orders', id);
     set(state => ({
       orders: state.orders.filter(o => o.id !== id)
     }));
+    await get().logActivity('DELETE', 'order', id, ord.orderNumber, `Order ${ord.orderNumber} deleted.`);
   },
 
   addTransaction: async (txData) => {
@@ -482,6 +561,7 @@ export const useStore = create<AuricState>((set, get) => ({
 
     await dbInstance.put('jobs', job);
     set(state => ({ jobs: [job, ...state.jobs] }));
+    await get().logActivity('CREATE', 'production', id, jobId, `Production Job ${jobId} initiated for order ${job.orderNumber || 'Custom'}.`);
   },
 
   updateJob: async (job) => {
@@ -506,6 +586,12 @@ export const useStore = create<AuricState>((set, get) => ({
     set(state => ({
       jobs: state.jobs.map(j => j.id === job.id ? updatedJob : j)
     }));
+
+    await get().logActivity('UPDATE', 'production', job.id, job.jobId, `Production Job ${job.jobId} updated. Stage: ${job.stage}.`);
+    
+    if (job.status === 'Delayed') {
+      await get().executeWorkflows('production_delayed', updatedJob);
+    }
 
     // If completed, sync back to order delivery status -> Ready
     if (job.stage === 'Completed' && job.orderId) {
@@ -547,6 +633,376 @@ export const useStore = create<AuricState>((set, get) => ({
     set({ settings });
   },
 
+  // Supplier Actions
+  addSupplier: async (supplierData) => {
+    const id = supplierData.id || `supp_${Date.now()}`;
+    const supplier: Supplier = {
+      ...supplierData,
+      id,
+      isActive: true,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await dbInstance.put('suppliers', supplier);
+    set(state => ({ suppliers: [supplier, ...state.suppliers] }));
+    await get().logActivity('CREATE', 'supplier', id, supplier.name, `Supplier ${supplier.name} registered.`);
+  },
+
+  updateSupplier: async (supplier) => {
+    await dbInstance.put('suppliers', supplier);
+    set(state => ({
+      suppliers: state.suppliers.map(s => s.id === supplier.id ? supplier : s)
+    }));
+    await get().logActivity('UPDATE', 'supplier', supplier.id, supplier.name, `Supplier ${supplier.name} updated.`);
+  },
+
+  deleteSupplier: async (id) => {
+    const supp = get().suppliers.find(s => s.id === id);
+    if (!supp) return;
+    await dbInstance.delete('suppliers', id);
+    set(state => ({
+      suppliers: state.suppliers.filter(s => s.id !== id)
+    }));
+    await get().logActivity('DELETE', 'supplier', id, supp.name, `Supplier ${supp.name} deleted.`);
+  },
+
+  // Purchase Order Actions
+  addPurchaseOrder: async (poData) => {
+    const id = poData.id || `po_${Date.now()}`;
+    const poNumber = poData.poNumber || `PO-2026-${get().purchaseOrders.length + 1001}`;
+    const totalCost = poData.items.reduce((sum, item) => sum + (item.unitCost * item.orderedQty), 0);
+
+    const po: PurchaseOrder = {
+      ...poData,
+      id,
+      poNumber,
+      totalCost,
+      status: poData.status || 'Draft'
+    } as PurchaseOrder;
+
+    await dbInstance.put('purchaseOrders', po);
+    set(state => ({ purchaseOrders: [po, ...state.purchaseOrders] }));
+    await get().logActivity('CREATE', 'purchase_order', id, poNumber, `Purchase Order ${poNumber} created.`);
+    
+    // Check if low stock rule triggered to update count
+    if (poData.status === 'Sent') {
+      await get().executeWorkflows('po_received', po);
+    }
+    return po;
+  },
+
+  updatePurchaseOrder: async (po) => {
+    await dbInstance.put('purchaseOrders', po);
+    set(state => ({
+      purchaseOrders: state.purchaseOrders.map(p => p.id === po.id ? po : p)
+    }));
+    await get().logActivity('UPDATE', 'purchase_order', po.id, po.poNumber, `Purchase Order ${po.poNumber} updated.`);
+  },
+
+  deletePurchaseOrder: async (id) => {
+    const po = get().purchaseOrders.find(p => p.id === id);
+    if (!po) return;
+    await dbInstance.delete('purchaseOrders', id);
+    set(state => ({
+      purchaseOrders: state.purchaseOrders.filter(p => p.id !== id)
+    }));
+    await get().logActivity('DELETE', 'purchase_order', id, po.poNumber, `Purchase Order ${po.poNumber} deleted.`);
+  },
+
+  receivePurchaseOrder: async (id, receivedQtys) => {
+    const po = get().purchaseOrders.find(p => p.id === id);
+    if (!po) return;
+
+    const updatedItems = po.items.map(item => {
+      const match = receivedQtys.find(r => r.productId === item.productId);
+      return {
+        ...item,
+        receivedQty: match ? match.qty : item.receivedQty
+      };
+    });
+
+    const updatedPo: PurchaseOrder = {
+      ...po,
+      items: updatedItems,
+      status: 'Pending Verification',
+      receivedDate: new Date().toISOString().split('T')[0],
+      receivedBy: get().user?.email || 'inventory@auric.com'
+    };
+
+    await dbInstance.put('purchaseOrders', updatedPo);
+    set(state => ({
+      purchaseOrders: state.purchaseOrders.map(p => p.id === id ? updatedPo : p)
+    }));
+
+    await get().logActivity('UPDATE', 'purchase_order', id, po.poNumber, `PO ${po.poNumber} marked as Received (Pending Verification).`);
+
+    // Create Notification for admin/verifier
+    await get().addNotification({
+      type: 'po_received',
+      title: 'PO Received - Verification Needed',
+      message: `Purchase Order ${po.poNumber} has been received. Quantities require physical verification.`,
+      severity: 'warning',
+      actionUrl: `/purchase-orders?verify=${id}`,
+      targetRoles: ['Administrator', 'Inventory Manager']
+    });
+
+    // Execute Workflows
+    await get().executeWorkflows('po_received', updatedPo);
+  },
+
+  verifyPurchaseOrder: async (id, verifiedQtys) => {
+    const po = get().purchaseOrders.find(p => p.id === id);
+    if (!po) return;
+
+    const updatedItems = po.items.map(item => {
+      const match = verifiedQtys.find(v => v.productId === item.productId);
+      return {
+        ...item,
+        verifiedQty: match ? match.qty : item.verifiedQty
+      };
+    });
+
+    const verifiedDate = new Date().toISOString().split('T')[0];
+    const verifiedBy = get().user?.email || 'admin@auric.com';
+
+    const updatedPo: PurchaseOrder = {
+      ...po,
+      items: updatedItems,
+      status: 'Completed',
+      verifiedDate,
+      verifiedBy
+    };
+
+    // Update Purchase Order record
+    await dbInstance.put('purchaseOrders', updatedPo);
+
+    // CRITICAL: Automatically update inventory and write transactions NOW
+    for (const item of updatedItems) {
+      const product = get().products.find(p => p.id === item.productId);
+      if (product) {
+        const nextStock = product.stock + item.verifiedQty;
+        const updatedProduct = {
+          ...product,
+          stock: nextStock
+        };
+
+        // Update product stock
+        await dbInstance.put('products', updatedProduct);
+        set(state => ({
+          products: state.products.map(p => p.id === product.id ? updatedProduct : p)
+        }));
+
+        // Write inventory log transaction
+        await get().addTransaction({
+          productId: product.id,
+          sku: product.sku,
+          productName: product.name,
+          type: 'IN',
+          quantity: item.verifiedQty,
+          weight: product.weight * item.verifiedQty,
+          sourceLocation: 'Supplier Shipment',
+          destinationLocation: product.location,
+          referenceId: po.poNumber,
+          performedBy: verifiedBy,
+          notes: `Stock updated after PO physical verification.`
+        });
+      }
+    }
+
+    set(state => ({
+      purchaseOrders: state.purchaseOrders.map(p => p.id === id ? updatedPo : p)
+    }));
+
+    await get().logActivity('VERIFY', 'purchase_order', id, po.poNumber, `PO ${po.poNumber} verified and stock updated.`);
+
+    // Notification
+    await get().addNotification({
+      type: 'po_verified',
+      title: 'PO Verification Completed',
+      message: `PO ${po.poNumber} verified. Inventory updated accordingly.`,
+      severity: 'success',
+      actionUrl: `/purchase-orders?view=${id}`,
+      targetRoles: ['Administrator', 'Inventory Manager', 'Sales Executive']
+    });
+  },
+
+  // Notification Actions
+  addNotification: async (notifData) => {
+    const id = `notif_${Date.now()}`;
+    const notification: AppNotification = {
+      ...notifData,
+      id,
+      isRead: false,
+      createdAt: new Date().toISOString()
+    };
+    await dbInstance.put('notifications', notification);
+    set(state => ({ notifications: [notification, ...state.notifications] }));
+  },
+
+  markNotificationRead: async (id) => {
+    const notif = get().notifications.find(n => n.id === id);
+    if (!notif) return;
+    const updated = { ...notif, isRead: true };
+    await dbInstance.put('notifications', updated);
+    set(state => ({
+      notifications: state.notifications.map(n => n.id === id ? updated : n)
+    }));
+  },
+
+  markAllNotificationsRead: async () => {
+    const updated = get().notifications.map(n => ({ ...n, isRead: true }));
+    await dbInstance.bulkPut('notifications', updated);
+    set({ notifications: updated });
+  },
+
+  deleteNotification: async (id) => {
+    await dbInstance.delete('notifications', id);
+    set(state => ({
+      notifications: state.notifications.filter(n => n.id !== id)
+    }));
+  },
+
+  // Activity Log Actions
+  logActivity: async (action, entity, entityId, entityName, description, metadata) => {
+    const id = `log_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const log: ActivityLog = {
+      id,
+      action,
+      entity,
+      entityId,
+      entityName,
+      description,
+      performedBy: get().user?.email || 'system',
+      performedByRole: get().user?.role || 'system',
+      timestamp: new Date().toISOString(),
+      metadata
+    };
+    await dbInstance.put('activityLogs', log);
+    set(state => ({ activityLogs: [log, ...state.activityLogs] }));
+  },
+
+  // Workflow Actions
+  addWorkflowRule: async (ruleData) => {
+    const id = `rule_${Date.now()}`;
+    const rule: WorkflowRule = {
+      ...ruleData,
+      id,
+      triggerCount: 0,
+      createdAt: new Date().toISOString().split('T')[0]
+    };
+    await dbInstance.put('workflowRules', rule);
+    set(state => ({ workflowRules: [rule, ...state.workflowRules] }));
+    await get().logActivity('CREATE', 'settings', id, rule.name, `Workflow rule ${rule.name} created.`);
+  },
+
+  updateWorkflowRule: async (rule) => {
+    await dbInstance.put('workflowRules', rule);
+    set(state => ({
+      workflowRules: state.workflowRules.map(r => r.id === rule.id ? rule : r)
+    }));
+    await get().logActivity('UPDATE', 'settings', rule.id, rule.name, `Workflow rule ${rule.name} updated.`);
+  },
+
+  deleteWorkflowRule: async (id) => {
+    const rule = get().workflowRules.find(r => r.id === id);
+    if (!rule) return;
+    await dbInstance.delete('workflowRules', id);
+    set(state => ({
+      workflowRules: state.workflowRules.filter(r => r.id !== id)
+    }));
+    await get().logActivity('DELETE', 'settings', id, rule.name, `Workflow rule ${rule.name} deleted.`);
+  },
+
+  executeWorkflows: async (trigger, data) => {
+    const rules = get().workflowRules.filter(r => r.isEnabled && r.trigger === trigger);
+    
+    for (const rule of rules) {
+      let isTriggered = false;
+
+      // Evaluate conditions
+      if (trigger === 'low_stock') {
+        const threshold = rule.conditions.threshold || 5;
+        if (data.stock < threshold) {
+          isTriggered = true;
+        }
+      } else if (trigger === 'po_received') {
+        // e.g. PO is pending verification
+        if (data.status === 'Pending Verification') {
+          isTriggered = true;
+        }
+      } else if (trigger === 'production_delayed') {
+        if (data.status === 'Delayed') {
+          isTriggered = true;
+        }
+      }
+
+      if (isTriggered) {
+        // Trigger actions
+        for (const action of rule.actions) {
+          if (action.type === 'send_notification') {
+            const config = action.config;
+            let message = config.message || '';
+            
+            // Format variables
+            if (data.name) message = message.replace('{{name}}', data.name);
+            if (data.stock !== undefined) message = message.replace('{{stock}}', String(data.stock));
+            if (data.poNumber) message = message.replace('{{poNumber}}', data.poNumber);
+            if (data.supplierName) message = message.replace('{{supplierName}}', data.supplierName);
+            if (data.productName) message = message.replace('{{productName}}', data.productName);
+            if (data.jobId) message = message.replace('{{jobId}}', data.jobId);
+            if (data.stage) message = message.replace('{{stage}}', data.stage);
+
+            await get().addNotification({
+              type: 'workflow',
+              title: config.title || 'Workflow Triggered',
+              message,
+              severity: config.severity || 'info',
+              targetRoles: config.targetRoles || ['Administrator']
+            });
+          } else if (action.type === 'create_purchase_order') {
+            // Auto draft PO creation
+            const config = action.config;
+            const supplierId = config.defaultSupplierId || 'supp_1';
+            const supplier = get().suppliers.find(s => s.id === supplierId);
+            if (supplier) {
+              await get().addPurchaseOrder({
+                supplierId: supplier.id,
+                supplierName: supplier.name,
+                status: 'Draft',
+                items: [{
+                  productId: data.id,
+                  sku: data.sku,
+                  name: data.name,
+                  orderedQty: config.reorderQty || 10,
+                  receivedQty: 0,
+                  verifiedQty: 0,
+                  unitCost: Math.round(data.sellingPrice * 0.7),
+                  weight: data.weight
+                }],
+                orderDate: new Date().toISOString().split('T')[0],
+                expectedDelivery: new Date(Date.now() + supplier.leadTimeDays * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                notes: `Auto-generated draft PO due to low stock of ${data.name}.`,
+                createdBy: 'system'
+              });
+            }
+          }
+        }
+
+        // Update trigger counts
+        const updatedRule = {
+          ...rule,
+          triggerCount: rule.triggerCount + 1,
+          lastTriggered: new Date().toISOString().split('T')[0]
+        };
+        await dbInstance.put('workflowRules', updatedRule);
+        set(state => ({
+          workflowRules: state.workflowRules.map(r => r.id === rule.id ? updatedRule : r)
+        }));
+
+        await get().logActivity('WORKFLOW', 'settings', rule.id, rule.name, `Workflow rule "${rule.name}" triggered.`);
+      }
+    }
+  },
+
   resetApplication: async () => {
     set({ isLoading: true });
     await dbInstance.seedDatabase(true); // force re-seed
@@ -558,6 +1014,11 @@ export const useStore = create<AuricState>((set, get) => ({
     const transactions = await dbInstance.getAll<InventoryTransaction>('transactions');
     const jobs = await dbInstance.getAll<ProductionJob>('jobs');
     const settingsList = await dbInstance.getAll<any>('settings');
+    const suppliers = await dbInstance.getAll<Supplier>('suppliers');
+    const purchaseOrders = await dbInstance.getAll<PurchaseOrder>('purchaseOrders');
+    const notifications = await dbInstance.getAll<AppNotification>('notifications');
+    const activityLogs = await dbInstance.getAll<ActivityLog>('activityLogs');
+    const workflowRules = await dbInstance.getAll<WorkflowRule>('workflowRules');
     const appSettings = settingsList.find(s => s.key === 'app_settings') || null;
 
     localStorage.removeItem('auric_bookmarks');
@@ -570,6 +1031,11 @@ export const useStore = create<AuricState>((set, get) => ({
       transactions,
       jobs,
       settings: appSettings,
+      suppliers,
+      purchaseOrders,
+      notifications,
+      activityLogs,
+      workflowRules,
       bookmarks: [],
       favorites: [],
       isLoading: false
