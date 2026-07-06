@@ -790,8 +790,8 @@ export function generateSeedData() {
   const roles = ['Administrator', 'Inventory Manager', 'Sales Executive', 'Production Manager'];
 
   for (let i = 1; i <= 30; i++) {
-    const action = randomChoice(logActions as any);
-    const entity = randomChoice(logEntities as any);
+    const action = randomChoice(logActions as any) as ActivityLog['action'];
+    const entity = randomChoice(logEntities as any) as ActivityLog['entity'];
     const email = emails[i % emails.length];
     const role = roles[i % roles.length];
     
